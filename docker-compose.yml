@@ -1,0 +1,82 @@
+version: '3.6'
+
+services:
+    powerdns:
+        #image: psitrax/powerdns
+        build: docker-powerdns
+        depends_on:
+            - mysql
+        ports:
+            - 53:53
+        volumes:
+            - ./config/pdns.conf:/etc/pdns/conf.d/pdns.conf
+            - ./config/preentry.sh:/preentry.sh
+        environment:
+            MYSQL_USER: "root"
+            MYSQL_PASS_FILE: "/run/secrets/db_root_password"
+            MYSQL_DNSSEC: "yes"
+        command: '/preentry.sh'
+        restart: always
+        secrets:
+            - db_root_password
+            - pdns_api_key
+        networks:
+            - internal
+
+    mysql:
+        image: mariadb:10.1
+        volumes:
+            - ./data/mysql:/var/lib/mysql
+        environment:
+            MYSQL_ROOT_PASSWORD_FILE: "/run/secrets/db_root_password"
+        restart: always
+        secrets:
+            - db_root_password
+        networks:
+            - internal
+
+    admin:
+        #image: ngoduykhanh/powerdns-admin:latest
+        build:
+            context: PowerDNS-Admin
+            dockerfile: docker/Dockerfile
+        environment:
+            SQLALCHEMY_DATABASE_URI_FILE: "/run/secrets/admin_sqla_uri"
+            SECRET_KEY_FILE: "/run/secrets/admin_secret_key"
+            PDNS_API_KEY_FILE: "/run/secrets/pdns_api_key"
+            PDNS_API_URL: "http://powerdns:8081"
+            PDNS_VERSION: "4.2.0"
+            GUINCORN_TIMEOUT: 60
+            GUNICORN_WORKERS: 2
+            GUNICORN_LOGLEVEL: DEBUG
+        restart: always
+        secrets:
+            - admin_sqla_uri
+            - pdns_api_key
+            - admin_secret_key
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.services.bb-dyndns.loadbalancer.server.port=80"
+            - "traefik.http.routers.bb-dyndns.rule=Host(`dnydns.xunit.de`)"
+            - "traefik.http.routers.bb-dyndns.entrypoints=https"
+            - "traefik.http.routers.bb-dyndns.tls=true"
+            - "traefik.http.routers.bb-dyndns.tls.certresolver=mytlschallenge"
+        networks:
+            - internal
+            - traefik_websecure
+ 
+secrets:
+    db_root_password:
+        file: ./secrets/db_root_password
+    admin_sqla_uri:
+        file: ./secrets/admin_sqla_uri
+    admin_secret_key:
+        file: ./secrets/admin_secret_key
+    pdns_api_key:
+        file: ./secrets/pdns_api_key
+  
+networks:
+    traefik_websecure:
+        external: true
+    internal:
+        driver: bridge

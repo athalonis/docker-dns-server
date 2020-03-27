@@ -1,0 +1,9 @@
+[submodule "nsupdate.info"]
+	path = nsupdate/nsupdate.info
+	url = https://github.com/nsupdate-info/nsupdate.info.git
+[submodule "docker-powerdns"]
+	path = docker-powerdns
+	url = git@github.com:athalonis/docker-powerdns.git
+[submodule "PowerDNS-Admin"]
+	path = PowerDNS-Admin
+	url = git@github.com:athalonis/PowerDNS-Admin.git
